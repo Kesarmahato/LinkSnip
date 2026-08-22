@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from .auth import get_current_user
 from .database import get_db
-from .models import Link
+from .models import Link, User
 from .schemas import LinkCreate, LinkResponse
 from .utils import generate_short_code
 
@@ -17,6 +18,7 @@ router = APIRouter(
 def create_link(
     link_data: LinkCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     # Generate a unique short code
     for _ in range(10):
@@ -50,11 +52,9 @@ def create_link(
                 detail="Custom alias already exists",
             )
 
-    # Temporary user ID until authentication is implemented
-    user_id = 1
-
+    # Create link for authenticated user
     link = Link(
-        user_id=user_id,
+        user_id=current_user.id,
         original_url=str(link_data.url),
         short_code=short_code,
         custom_alias=link_data.custom_alias,
@@ -76,3 +76,67 @@ def create_link(
         expires_at=link.expires_at,
         is_active=link.is_active,
     )
+
+
+@router.get("/", response_model=list[LinkResponse])
+def list_links(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    links = (
+        db.query(Link)
+        .filter(Link.user_id == current_user.id)
+        .all()
+    )
+
+    return [
+        LinkResponse(
+            id=link.id,
+            original_url=link.original_url,
+            short_code=link.short_code,
+            short_url=f"http://localhost:8000/{link.custom_alias or link.short_code}",
+            custom_alias=link.custom_alias,
+            expires_at=link.expires_at,
+            is_active=link.is_active,
+        )
+        for link in links
+    ]
+
+@router.delete("/{link_id}")
+def deactivate_link(
+    link_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    # Find the link
+    link = (
+        db.query(Link)
+        .filter(Link.id == link_id)
+        .first()
+    )
+
+    # Link does not exist
+    if not link:
+        raise HTTPException(
+            status_code=404,
+            detail="Link not found",
+        )
+
+    # Check ownership
+    if link.user_id != current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have permission to modify this link",
+        )
+
+    # Deactivate the link
+    link.is_active = False
+
+    db.commit()
+    db.refresh(link)
+
+    return {
+        "message": "Link deactivated successfully",
+        "link_id": link.id,
+        "is_active": link.is_active,
+    }

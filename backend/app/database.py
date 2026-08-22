@@ -1,11 +1,11 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-DATABASE_URL = "postgresql+psycopg://codespace@127.0.0.1:5433/linksnip"
+DATABASE_URL = "sqlite:///./linksnip.db"
 
 engine = create_engine(
     DATABASE_URL,
-    echo=True,
+    connect_args={"check_same_thread": False}
 )
 
 SessionLocal = sessionmaker(
