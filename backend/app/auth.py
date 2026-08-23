@@ -172,8 +172,8 @@ def register(
         email=data.email.lower(),
         password_hash=hash_password(data.password),
         is_verified=False,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
     )
 
     db.add(user)

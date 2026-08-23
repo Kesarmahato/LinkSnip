@@ -71,18 +71,33 @@ def test_custom_alias():
 def test_duplicate_alias():
     token = login()
 
-    response = client.post(
+    headers = {
+        "Authorization": f"Bearer {token}",
+    }
+
+    # First create the alias.
+    first_response = client.post(
         "/api/links/",
-        headers={
-            "Authorization": f"Bearer {token}",
-        },
+        headers=headers,
         json={
             "url": "https://example.com/duplicate",
             "custom_alias": "pytestalias123",
         },
     )
 
-    assert response.status_code == 409
+    assert first_response.status_code == 200
+
+    # Try to create the same alias again.
+    second_response = client.post(
+        "/api/links/",
+        headers=headers,
+        json={
+            "url": "https://example.com/duplicate-2",
+            "custom_alias": "pytestalias123",
+        },
+    )
+
+    assert second_response.status_code == 409
 
 
 def test_redirect_to_original():
