@@ -793,3 +793,227 @@ body {
     padding: 25px 20px;
   }
 }
+/* =========================
+   Analytics Dashboard
+   ========================= */
+
+.analytics-section {
+  margin-top: 30px;
+  padding: 28px;
+
+  background: #ffffff;
+  border: 1px solid #e5e7ef;
+  border-radius: 18px;
+
+  box-shadow:
+    0 12px 35px rgba(30, 41, 59, 0.06),
+    0 2px 6px rgba(30, 41, 59, 0.03);
+}
+
+.analytics-section .section-heading {
+  margin-bottom: 24px;
+}
+
+.analytics-section .section-heading h2 {
+  margin: 0;
+  color: #171b2d;
+  font-size: 22px;
+  font-weight: 750;
+}
+
+.analytics-section .section-heading p {
+  margin: 5px 0 0;
+  color: #7a8498;
+  font-size: 13px;
+}
+
+/* Analytics statistics */
+
+.analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  padding: 20px;
+
+  background: #f8f9fc;
+  border: 1px solid #e5e7ef;
+  border-radius: 14px;
+}
+
+.stat-card span {
+  display: block;
+  margin-bottom: 8px;
+
+  color: #7a8498;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.stat-card strong {
+  display: block;
+
+  color: #171b2d;
+  font-size: 28px;
+  line-height: 1;
+  font-weight: 800;
+}
+
+/* Analytics data sections */
+
+.analytics-content {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px;
+}
+
+.analytics-card {
+  padding: 22px;
+
+  background: #ffffff;
+  border: 1px solid #e5e7ef;
+  border-radius: 14px;
+}
+
+.analytics-card h3 {
+  margin: 0 0 16px;
+
+  color: #20263a;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.analytics-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.analytics-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 10px 12px;
+
+  background: #f8f9fc;
+  border-radius: 9px;
+}
+
+.analytics-row span:first-child {
+  color: #4b5568;
+  font-size: 14px;
+}
+
+.analytics-row span:last-child {
+  color: #171b2d;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* Clicks over time */
+
+.clicks-over-time {
+  grid-column: 1 / -1;
+}
+
+.clicks-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+
+  min-height: 180px;
+  padding: 20px;
+
+  background: #f8f9fc;
+  border-radius: 12px;
+}
+
+.click-bar-wrapper {
+  flex: 1;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+
+  height: 140px;
+  min-width: 30px;
+}
+
+.click-bar {
+  width: 100%;
+  max-width: 42px;
+  min-height: 4px;
+
+  background: #6366f1;
+  border-radius: 6px 6px 2px 2px;
+
+  transition: height 0.25s ease;
+}
+
+.click-bar-value {
+  margin-bottom: 6px;
+
+  color: #4b5568;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.click-bar-date {
+  margin-top: 7px;
+
+  color: #7a8498;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* Empty analytics data */
+
+.analytics-empty {
+  padding: 20px;
+
+  color: #7a8498;
+  background: #f8f9fc;
+  border-radius: 10px;
+
+  text-align: center;
+  font-size: 13px;
+}
+
+/* Responsive analytics */
+
+@media (max-width: 900px) {
+  .analytics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .analytics-content {
+    grid-template-columns: 1fr;
+  }
+
+  .clicks-over-time {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 600px) {
+  .analytics-section {
+    padding: 18px;
+  }
+
+  .analytics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .clicks-chart {
+    overflow-x: auto;
+  }
+
+  .click-bar-wrapper {
+    min-width: 42px;
+  }
+}

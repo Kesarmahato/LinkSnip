@@ -1,12 +1,13 @@
 from collections import Counter
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from .auth import get_current_user
-
+from app.auth import get_current_user
 from app.database import get_db
-from .models import Link, Click, User
+from app.models import Click, Link, User
+
 
 router = APIRouter(
     prefix="/api/links",
@@ -32,15 +33,15 @@ def get_link_analytics(
             status_code=404,
             detail="Link not found",
         )
-    
+
+    # Check ownership
     if link.user_id != current_user.id:
         raise HTTPException(
             status_code=403,
             detail="You do not have permission to access this link",
-    )
+        )
 
     # Get all clicks for this link
-
     clicks = (
         db.query(Click)
         .filter(Click.link_id == link_id)
@@ -49,11 +50,19 @@ def get_link_analytics(
     )
 
     # Total clicks
-
     total_clicks = len(clicks)
 
-    # Devices
+    # Today's clicks
+    today = datetime.now(timezone.utc).date()
 
+    today_clicks = sum(
+        1
+        for click in clicks
+        if click.clicked_at
+        and click.clicked_at.date() == today
+    )
+
+    # Devices
     device_counter = Counter(
         click.device_type
         for click in clicks
@@ -65,11 +74,10 @@ def get_link_analytics(
             "device": device,
             "clicks": count,
         }
-        for device, count in device_counter.items()
+        for device, count in device_counter.most_common()
     ]
 
     # Browsers
-
     browser_counter = Counter(
         click.browser
         for click in clicks
@@ -81,11 +89,10 @@ def get_link_analytics(
             "browser": browser,
             "clicks": count,
         }
-        for browser, count in browser_counter.items()
+        for browser, count in browser_counter.most_common()
     ]
 
     # Operating systems
-
     os_counter = Counter(
         click.operating_system
         for click in clicks
@@ -97,11 +104,10 @@ def get_link_analytics(
             "operating_system": operating_system,
             "clicks": count,
         }
-        for operating_system, count in os_counter.items()
+        for operating_system, count in os_counter.most_common()
     ]
 
     # Referrers
-
     referrer_counter = Counter(
         click.referrer
         for click in clicks
@@ -117,7 +123,6 @@ def get_link_analytics(
     ]
 
     # Clicks over time
-
     clicks_by_date = Counter(
         click.clicked_at.strftime("%Y-%m-%d")
         for click in clicks
@@ -133,7 +138,6 @@ def get_link_analytics(
     ]
 
     # Countries
-
     country_counter = Counter(
         click.country
         for click in clicks
@@ -149,7 +153,6 @@ def get_link_analytics(
     ]
 
     # Cities
-
     city_counter = Counter(
         click.city
         for click in clicks
@@ -164,14 +167,13 @@ def get_link_analytics(
         for city, count in city_counter.most_common(10)
     ]
 
-    # Final response
-
     return {
         "link_id": link.id,
         "short_code": link.short_code,
         "custom_alias": link.custom_alias,
         "original_url": link.original_url,
         "total_clicks": total_clicks,
+        "today_clicks": today_clicks,
         "clicks_over_time": clicks_over_time,
         "top_referrers": top_referrers,
         "devices": devices,
