@@ -1,3 +1,5 @@
+import os
+from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -7,11 +9,17 @@ from .models import Link, User
 from .schemas import LinkCreate, LinkResponse
 from .utils import generate_short_code
 
+load_dotenv()
+
+BASE_URL = os.getenv(
+    "BASE_URL",
+    "http://localhost:8000",
+).rstrip("/")
 
 router = APIRouter(
     prefix="/api/links",
     tags=["Links"],
-)
+	)
 
 
 @router.post("/", response_model=LinkResponse)
@@ -71,7 +79,7 @@ def create_link(
         id=link.id,
         original_url=link.original_url,
         short_code=link.short_code,
-        short_url=f"http://localhost:8000/{link.custom_alias or link.short_code}",
+        short_url=f"{BASE_URL}/{link.custom_alias or link.short_code}",
         custom_alias=link.custom_alias,
         expires_at=link.expires_at,
         is_active=link.is_active,
@@ -94,7 +102,7 @@ def list_links(
             id=link.id,
             original_url=link.original_url,
             short_code=link.short_code,
-            short_url=f"http://localhost:8000/{link.custom_alias or link.short_code}",
+            short_url=f"{BASE_URL}/{link.custom_alias or link.short_code}",
             custom_alias=link.custom_alias,
             expires_at=link.expires_at,
             is_active=link.is_active,
