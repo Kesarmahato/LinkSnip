@@ -1,16 +1,75 @@
-# React + Vite
+# LinkSnip
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+LinkSnip is a full-stack URL shortening and analytics platform that allows users to create, manage, and analyze shortened links.
 
-Currently, two official plugins are available:
+## 🚀 Live Demo
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Frontend: YOUR_FRONTEND_URL
 
-## React Compiler
+Backend API: YOUR_BACKEND_URL
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## ✨ Features
 
-## Expanding the ESLint configuration
+- User registration and login
+- Secure authentication
+- Create shortened URLs
+- Custom URL aliases
+- Link expiration
+- View all created links
+- Copy shortened URLs
+- Deactivate links
+- Click analytics
+- Clicks over time
+- Referrer analytics
+- Device analytics
+- Browser analytics
+- Operating system analytics
+- Country analytics
+- City analytics
+- Responsive design
+- Production deployment
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## 🛠️ Tech Stack
+
+### Frontend
+
+- React
+- Vite
+- Axios
+- JavaScript
+- CSS
+
+### Backend
+
+- Python
+- FastAPI
+- REST API
+
+### Database
+
+- PostgreSQL
+
+### Deployment
+
+- Frontend: Netlify
+- Backend: Render
+
+## 📁 Project Structure
+
+```text
+LinkSnip/
+├── frontend/
+│   ├── src/
+│   │   ├── services/
+│   │   ├── App.jsx
+│   │   ├── App.css
+│   │   └── main.jsx
+│   ├── package.json
+│   └── vite.config.js
+│
+├── backend/
+│   ├── app/
+│   ├── requirements.txt
+│   └── ...
+│
+└── README.md

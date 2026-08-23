@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import api from "./services/api";
 import "./App.css";
 
@@ -31,9 +31,9 @@ function App() {
   // AUTH TOKEN
   // --------------------------------------------------
 
-  const getToken = () => {
+  const getToken = useCallback(() => {
     return localStorage.getItem("access_token");
-  };
+  }, []);
 
   // --------------------------------------------------
   // LINK STATUS
@@ -55,19 +55,10 @@ function App() {
   };
 
   // --------------------------------------------------
-  // INITIAL LOAD
-  // --------------------------------------------------
-
-  useEffect(() => {
-    checkBackend();
-    restoreSession();
-  }, []);
-
-  // --------------------------------------------------
   // BACKEND HEALTH
   // --------------------------------------------------
 
-  const checkBackend = async () => {
+  const checkBackend = useCallback(async () => {
     try {
       const response = await api.get("/health");
 
@@ -80,13 +71,52 @@ function App() {
       console.error("Backend error:", error);
       setBackendStatus("Backend connection failed");
     }
-  };
+  }, []);
+
+  // --------------------------------------------------
+  // LOAD LINKS
+  // --------------------------------------------------
+
+  const loadLinks = useCallback(
+    async (authToken = getToken()) => {
+      if (!authToken) {
+        return;
+      }
+
+      setLinksLoading(true);
+      setError("");
+
+      try {
+        const response = await api.get("/links/", {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        });
+
+        setLinks(response.data);
+        setBackendStatus("Backend connected successfully");
+      } catch (error) {
+        console.error("Failed to load links:", error);
+
+        const detail = error.response?.data?.detail;
+
+        if (typeof detail === "string") {
+          setError(detail);
+        } else {
+          setError("Unable to load your links.");
+        }
+      } finally {
+        setLinksLoading(false);
+      }
+    },
+    [getToken]
+  );
 
   // --------------------------------------------------
   // RESTORE LOGIN SESSION
   // --------------------------------------------------
 
-  const restoreSession = async () => {
+  const restoreSession = useCallback(async () => {
     const savedToken = getToken();
 
     if (!savedToken) {
@@ -111,44 +141,22 @@ function App() {
       localStorage.removeItem("access_token");
       setUser(null);
     }
-  };
+  }, [getToken, loadLinks]);
 
   // --------------------------------------------------
-  // LOAD LINKS
+  // INITIAL LOAD
   // --------------------------------------------------
 
-  const loadLinks = async (authToken = getToken()) => {
-    if (!authToken) {
-      return;
-    }
-
-    setLinksLoading(true);
-    setError("");
-
-    try {
-      const response = await api.get("/links/", {
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-        },
-      });
-
-      setLinks(response.data);
-
-      setBackendStatus("Backend connected successfully");
-    } catch (error) {
-      console.error("Failed to load links:", error);
-
-      const detail = error.response?.data?.detail;
-
-      if (typeof detail === "string") {
-        setError(detail);
-      } else {
-        setError("Unable to load your links.");
-      }
-    } finally {
-      setLinksLoading(false);
-    }
+  useEffect(() => {
+  const initializeApp = async () => {
+    await Promise.all([
+      checkBackend(),
+      restoreSession(),
+    ]);
   };
+
+  initializeApp();
+}, [checkBackend, restoreSession]);
 
   // --------------------------------------------------
   // LOGIN / REGISTER
@@ -202,15 +210,11 @@ function App() {
       const detail = error.response?.data?.detail;
 
       if (Array.isArray(detail)) {
-        setError(
-          detail.map((item) => item.msg).join(", ")
-        );
+        setError(detail.map((item) => item.msg).join(", "));
       } else if (typeof detail === "string") {
         setError(detail);
       } else {
-        setError(
-          "Something went wrong. Please try again."
-        );
+        setError("Something went wrong. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -246,8 +250,6 @@ function App() {
         expires_at: expiresAt || null,
       };
 
-      // IMPORTANT:
-      // Creating a link must use POST.
       await api.post("/links/", payload, {
         headers: {
           Authorization: `Bearer ${authToken}`,
@@ -258,9 +260,7 @@ function App() {
       setCustomAlias("");
       setExpiresAt("");
 
-      setMessage(
-        "Short link created successfully."
-      );
+      setMessage("Short link created successfully.");
 
       await loadLinks(authToken);
     } catch (error) {
@@ -269,15 +269,11 @@ function App() {
       const detail = error.response?.data?.detail;
 
       if (Array.isArray(detail)) {
-        setError(
-          detail.map((item) => item.msg).join(", ")
-        );
+        setError(detail.map((item) => item.msg).join(", "));
       } else if (typeof detail === "string") {
         setError(detail);
       } else {
-        setError(
-          "Unable to create the short link."
-        );
+        setError("Unable to create the short link.");
       }
     } finally {
       setLoading(false);
@@ -318,9 +314,7 @@ function App() {
         },
       });
 
-      setMessage(
-        "Link deactivated successfully."
-      );
+      setMessage("Link deactivated successfully.");
 
       await loadLinks(authToken);
     } catch (error) {
@@ -367,20 +361,13 @@ function App() {
         }
       );
 
-      console.log(
-        "Analytics response:",
-        response.data
-      );
+      console.log("Analytics response:", response.data);
 
       setAnalytics(response.data);
     } catch (error) {
-      console.error(
-        "Analytics error:",
-        error
-      );
+      console.error("Analytics error:", error);
 
-      const detail =
-        error.response?.data?.detail;
+      const detail = error.response?.data?.detail;
 
       setError(
         typeof detail === "string"
@@ -408,9 +395,7 @@ function App() {
 
   const copyShortUrl = async (link) => {
     try {
-      await navigator.clipboard.writeText(
-        link.short_url
-      );
+      await navigator.clipboard.writeText(link.short_url);
 
       setCopiedId(link.id);
 
@@ -418,14 +403,9 @@ function App() {
         setCopiedId(null);
       }, 2000);
     } catch (error) {
-      console.error(
-        "Copy failed:",
-        error
-      );
+      console.error("Copy failed:", error);
 
-      setError(
-        "Unable to copy the short URL."
-      );
+      setError("Unable to copy the short URL.");
     }
   };
 
@@ -434,9 +414,7 @@ function App() {
   // --------------------------------------------------
 
   const handleLogout = () => {
-    localStorage.removeItem(
-      "access_token"
-    );
+    localStorage.removeItem("access_token");
 
     setUser(null);
     setLinks([]);
@@ -458,33 +436,23 @@ function App() {
   if (user) {
     return (
       <div className="app">
-
-        {/* HEADER */}
-
         <header className="topbar">
           <div>
             <h1>LinkSnip</h1>
 
-            <p>
-              URL Shortening &amp; Analytics
-            </p>
+            <p>URL Shortening &amp; Analytics</p>
           </div>
 
           <div className="account-area">
             <span>{user.email}</span>
 
-            <button
-              onClick={handleLogout}
-            >
+            <button onClick={handleLogout}>
               Log out
             </button>
           </div>
         </header>
 
         <main className="dashboard">
-
-          {/* BACKEND STATUS */}
-
           <div className="backend-status">
             <span
               className={
@@ -498,18 +466,12 @@ function App() {
             {backendStatus}
           </div>
 
-          {/* CREATE LINK */}
-
           <section className="create-card">
-
             <div>
-              <h2>
-                Create a short link
-              </h2>
+              <h2>Create a short link</h2>
 
               <p>
-                Turn a long URL into a
-                shareable LinkSnip URL.
+                Turn a long URL into a shareable LinkSnip URL.
               </p>
             </div>
 
@@ -532,9 +494,7 @@ function App() {
                 placeholder="Custom alias (optional)"
                 value={customAlias}
                 onChange={(event) =>
-                  setCustomAlias(
-                    event.target.value
-                  )
+                  setCustomAlias(event.target.value)
                 }
               />
 
@@ -542,9 +502,7 @@ function App() {
                 type="datetime-local"
                 value={expiresAt}
                 onChange={(event) =>
-                  setExpiresAt(
-                    event.target.value
-                  )
+                  setExpiresAt(event.target.value)
                 }
               />
 
@@ -552,14 +510,10 @@ function App() {
                 type="submit"
                 disabled={loading}
               >
-                {loading
-                  ? "Creating..."
-                  : "Shorten URL"}
+                {loading ? "Creating..." : "Shorten URL"}
               </button>
             </form>
           </section>
-
-          {/* MESSAGES */}
 
           {error && (
             <div className="error-message">
@@ -573,34 +527,23 @@ function App() {
             </div>
           )}
 
-          {/* LINKS */}
-
           <section className="links-section">
-
             <div className="section-heading">
-
               <div>
                 <h2>Your links</h2>
 
                 <p>
                   {links.length} link
-                  {links.length === 1
-                    ? ""
-                    : "s"}
+                  {links.length === 1 ? "" : "s"}
                 </p>
               </div>
 
               <button
-                onClick={() =>
-                  loadLinks()
-                }
+                onClick={() => loadLinks()}
                 disabled={linksLoading}
               >
-                {linksLoading
-                  ? "Refreshing..."
-                  : "Refresh"}
+                {linksLoading ? "Refreshing..." : "Refresh"}
               </button>
-
             </div>
 
             {linksLoading ? (
@@ -609,35 +552,24 @@ function App() {
               </div>
             ) : links.length === 0 ? (
               <div className="empty-state">
-
-                <h3>
-                  No links yet
-                </h3>
+                <h3>No links yet</h3>
 
                 <p>
-                  Create your first
-                  shortened link above.
+                  Create your first shortened link above.
                 </p>
-
               </div>
             ) : (
               <div className="links-list">
-
                 {links.map((link) => {
-
-                  const active =
-                    isLinkActive(link);
+                  const active = isLinkActive(link);
 
                   return (
                     <article
                       className="link-card"
                       key={link.id}
                     >
-
                       <div className="link-main">
-
                         <div className="link-header">
-
                           <span
                             className={
                               active
@@ -645,9 +577,7 @@ function App() {
                                 : "badge inactive"
                             }
                           >
-                            {active
-                              ? "Active"
-                              : "Inactive"}
+                            {active ? "Active" : "Inactive"}
                           </span>
 
                           {link.expires_at && (
@@ -658,7 +588,6 @@ function App() {
                               ).toLocaleString()}
                             </span>
                           )}
-
                         </div>
 
                         <h3>
@@ -672,31 +601,23 @@ function App() {
                         </h3>
 
                         <a
-                          href={
-                            link.original_url
-                          }
+                          href={link.original_url}
                           target="_blank"
                           rel="noreferrer"
                           className="original-url"
                         >
                           {link.original_url}
                         </a>
-
                       </div>
 
                       <div className="link-actions">
-
                         <button
-                          onClick={() =>
-                            copyShortUrl(link)
-                          }
+                          onClick={() => copyShortUrl(link)}
                         >
                           {copiedId === link.id
                             ? "Copied!"
                             : "Copy"}
                         </button>
-
-                        {/* ANALYTICS BUTTON */}
 
                         <button
                           onClick={() =>
@@ -706,471 +627,268 @@ function App() {
                           Analytics
                         </button>
 
-                        {/* ONLY SHOW DEACTIVATE
-                            FOR ACTIVE LINKS */}
-
                         {active && (
                           <button
                             className="danger-button"
                             onClick={() =>
-                              handleDeactivate(
-                                link.id
-                              )
+                              handleDeactivate(link.id)
                             }
                           >
                             Deactivate
                           </button>
                         )}
-
                       </div>
-
                     </article>
                   );
                 })}
-
               </div>
             )}
-
           </section>
-
-          {/* =================================================
-              ANALYTICS DASHBOARD
-              ================================================= */}
 
           {analyticsLink && (
             <section className="analytics-section">
-
               <div className="section-heading">
-
                 <div>
-                  <h2>
-                    Analytics
-                  </h2>
+                  <h2>Analytics</h2>
 
-                  <p>
-                    {analyticsLink.short_url}
-                  </p>
+                  <p>{analyticsLink.short_url}</p>
                 </div>
 
-                <button
-                  onClick={closeAnalytics}
-                >
+                <button onClick={closeAnalytics}>
                   Close
                 </button>
-
               </div>
 
               {analyticsLoading ? (
-
                 <div className="empty-state">
                   Loading analytics...
                 </div>
-
               ) : analytics ? (
-
                 <>
-
-                  {/* STATISTICS */}
-
                   <div className="analytics-grid">
-
                     <div className="stat-card">
-                      <span>
-                        Total clicks
-                      </span>
+                      <span>Total clicks</span>
 
                       <strong>
-                        {analytics.total_clicks ??
-                          0}
+                        {analytics.total_clicks ?? 0}
                       </strong>
                     </div>
 
                     <div className="stat-card">
-                      <span>
-                        Today
-                      </span>
+                      <span>Today</span>
 
                       <strong>
-                        {analytics.today_clicks ??
-                          0}
+                        {analytics.today_clicks ?? 0}
                       </strong>
                     </div>
 
                     <div className="stat-card">
-                      <span>
-                        Referrers
-                      </span>
+                      <span>Referrers</span>
 
                       <strong>
-                        {analytics
-                          .top_referrers
-                          ?.length ?? 0}
+                        {analytics.top_referrers?.length ?? 0}
                       </strong>
                     </div>
 
                     <div className="stat-card">
-                      <span>
-                        Countries
-                      </span>
+                      <span>Countries</span>
 
                       <strong>
-                        {analytics.countries
-                          ?.length ?? 0}
+                        {analytics.countries?.length ?? 0}
                       </strong>
                     </div>
-
                   </div>
-
-                  {/* CLICKS OVER TIME */}
 
                   <div className="analytics-card full-width">
+                    <h3>Clicks over time</h3>
 
-                    <h3>
-                      Clicks over time
-                    </h3>
-
-                    {analytics
-                      .clicks_over_time
-                      ?.length ? (
-
+                    {analytics.clicks_over_time?.length ? (
                       <div className="analytics-list">
-
-                        {analytics
-                          .clicks_over_time
-                          .map((item, index) => (
-
+                        {analytics.clicks_over_time.map(
+                          (item, index) => (
                             <div
                               className="analytics-row"
-                              key={
-                                item.date ??
-                                index
-                              }
+                              key={item.date ?? index}
                             >
-                              <span>
-                                {item.date}
-                              </span>
+                              <span>{item.date}</span>
 
                               <strong>
-                                {item.clicks ??
-                                  0}
+                                {item.clicks ?? 0}
                               </strong>
                             </div>
-
-                          ))}
-
+                          )
+                        )}
                       </div>
-
                     ) : (
-                      <p>
-                        No click data yet.
-                      </p>
+                      <p>No click data yet.</p>
                     )}
-
                   </div>
 
-                  {/* ANALYTICS COLUMNS */}
-
                   <div className="analytics-columns">
-
-                    {/* REFERRERS */}
-
                     <div className="analytics-card">
+                      <h3>Top referrers</h3>
 
-                      <h3>
-                        Top referrers
-                      </h3>
-
-                      {analytics
-                        .top_referrers
-                        ?.length ? (
-
+                      {analytics.top_referrers?.length ? (
                         <div className="analytics-list">
+                          {analytics.top_referrers.map(
+                            (item, index) => (
+                              <div
+                                className="analytics-row"
+                                key={`${item.referrer}-${index}`}
+                              >
+                                <span>
+                                  {item.referrer || "Direct"}
+                                </span>
 
-                          {analytics
-                            .top_referrers
-                            .map(
-                              (
-                                item,
-                                index
-                              ) => (
-
-                                <div
-                                  className="analytics-row"
-                                  key={`${item.referrer}-${index}`}
-                                >
-
-                                  <span>
-                                    {item.referrer ||
-                                      "Direct"}
-                                  </span>
-
-                                  <strong>
-                                    {item.clicks ??
-                                      0}
-                                  </strong>
-
-                                </div>
-
-                              )
-                            )}
-
+                                <strong>
+                                  {item.clicks ?? 0}
+                                </strong>
+                              </div>
+                            )
+                          )}
                         </div>
-
                       ) : (
-                        <p>
-                          No referrer data yet.
-                        </p>
+                        <p>No referrer data yet.</p>
                       )}
-
                     </div>
 
-                    {/* DEVICES */}
-
                     <div className="analytics-card">
+                      <h3>Devices</h3>
 
-                      <h3>
-                        Devices
-                      </h3>
-
-                      {analytics.devices
-                        ?.length ? (
-
+                      {analytics.devices?.length ? (
                         <div className="analytics-list">
-
                           {analytics.devices.map(
                             (item, index) => (
-
                               <div
                                 className="analytics-row"
                                 key={`${item.device}-${index}`}
                               >
-
-                                <span>
-                                  {item.device}
-                                </span>
+                                <span>{item.device}</span>
 
                                 <strong>
-                                  {item.clicks ??
-                                    0}
+                                  {item.clicks ?? 0}
                                 </strong>
-
                               </div>
-
                             )
                           )}
-
                         </div>
-
                       ) : (
-                        <p>
-                          No device data yet.
-                        </p>
+                        <p>No device data yet.</p>
                       )}
-
                     </div>
 
-                    {/* BROWSERS */}
-
                     <div className="analytics-card">
+                      <h3>Browsers</h3>
 
-                      <h3>
-                        Browsers
-                      </h3>
-
-                      {analytics.browsers
-                        ?.length ? (
-
+                      {analytics.browsers?.length ? (
                         <div className="analytics-list">
-
                           {analytics.browsers.map(
                             (item, index) => (
-
                               <div
                                 className="analytics-row"
                                 key={`${item.browser}-${index}`}
                               >
+                                <span>{item.browser}</span>
 
+                                <strong>
+                                  {item.clicks ?? 0}
+                                </strong>
+                              </div>
+                            )
+                          )}
+                        </div>
+                      ) : (
+                        <p>No browser data yet.</p>
+                      )}
+                    </div>
+
+                    <div className="analytics-card">
+                      <h3>Operating systems</h3>
+
+                      {analytics.operating_systems?.length ? (
+                        <div className="analytics-list">
+                          {analytics.operating_systems.map(
+                            (item, index) => (
+                              <div
+                                className="analytics-row"
+                                key={`${item.operating_system}-${index}`}
+                              >
                                 <span>
-                                  {item.browser}
+                                  {item.operating_system}
                                 </span>
 
                                 <strong>
-                                  {item.clicks ??
-                                    0}
+                                  {item.clicks ?? 0}
                                 </strong>
-
                               </div>
-
                             )
                           )}
-
                         </div>
-
                       ) : (
                         <p>
-                          No browser data yet.
+                          No operating-system data yet.
                         </p>
                       )}
-
                     </div>
 
-                    {/* OPERATING SYSTEMS */}
-
                     <div className="analytics-card">
+                      <h3>Countries</h3>
 
-                      <h3>
-                        Operating systems
-                      </h3>
-
-                      {analytics
-                        .operating_systems
-                        ?.length ? (
-
+                      {analytics.countries?.length ? (
                         <div className="analytics-list">
-
-                          {analytics
-                            .operating_systems
-                            .map(
-                              (
-                                item,
-                                index
-                              ) => (
-
-                                <div
-                                  className="analytics-row"
-                                  key={`${item.operating_system}-${index}`}
-                                >
-
-                                  <span>
-                                    {item.operating_system}
-                                  </span>
-
-                                  <strong>
-                                    {item.clicks ??
-                                      0}
-                                  </strong>
-
-                                </div>
-
-                              )
-                            )}
-
-                        </div>
-
-                      ) : (
-                        <p>
-                          No operating-system
-                          data yet.
-                        </p>
-                      )}
-
-                    </div>
-
-                    {/* COUNTRIES */}
-
-                    <div className="analytics-card">
-
-                      <h3>
-                        Countries
-                      </h3>
-
-                      {analytics.countries
-                        ?.length ? (
-
-                        <div className="analytics-list">
-
                           {analytics.countries.map(
                             (item, index) => (
-
                               <div
                                 className="analytics-row"
                                 key={`${item.country}-${index}`}
                               >
-
-                                <span>
-                                  {item.country}
-                                </span>
+                                <span>{item.country}</span>
 
                                 <strong>
-                                  {item.clicks ??
-                                    0}
+                                  {item.clicks ?? 0}
                                 </strong>
-
                               </div>
-
                             )
                           )}
-
                         </div>
-
                       ) : (
-                        <p>
-                          No country data yet.
-                        </p>
+                        <p>No country data yet.</p>
                       )}
-
                     </div>
 
-                    {/* CITIES */}
-
                     <div className="analytics-card">
+                      <h3>Cities</h3>
 
-                      <h3>
-                        Cities
-                      </h3>
-
-                      {analytics.cities
-                        ?.length ? (
-
+                      {analytics.cities?.length ? (
                         <div className="analytics-list">
-
                           {analytics.cities.map(
                             (item, index) => (
-
                               <div
                                 className="analytics-row"
                                 key={`${item.city}-${index}`}
                               >
-
-                                <span>
-                                  {item.city}
-                                </span>
+                                <span>{item.city}</span>
 
                                 <strong>
-                                  {item.clicks ??
-                                    0}
+                                  {item.clicks ?? 0}
                                 </strong>
-
                               </div>
-
                             )
                           )}
-
                         </div>
-
                       ) : (
-                        <p>
-                          No city data yet.
-                        </p>
+                        <p>No city data yet.</p>
                       )}
-
                     </div>
-
                   </div>
-
                 </>
-
               ) : (
-
                 <div className="empty-state">
                   No analytics available.
                 </div>
-
               )}
-
             </section>
           )}
-
         </main>
       </div>
     );
@@ -1182,20 +900,14 @@ function App() {
 
   return (
     <div className="app">
-
       <header className="hero">
-
-        <h1>
-          LinkSnip
-        </h1>
+        <h1>LinkSnip</h1>
 
         <p>
-          URL Shortening &amp;
-          Analytics Platform
+          URL Shortening &amp; Analytics Platform
         </p>
 
         <div className="backend-status">
-
           <span
             className={
               backendStatus ===
@@ -1206,15 +918,11 @@ function App() {
           />
 
           {backendStatus}
-
         </div>
-
       </header>
 
       <main>
-
         <section className="auth-card">
-
           <h2>
             {mode === "login"
               ? "Welcome back"
@@ -1228,7 +936,6 @@ function App() {
           </p>
 
           <form onSubmit={handleSubmit}>
-
             <label htmlFor="email">
               Email
             </label>
@@ -1282,7 +989,6 @@ function App() {
                   ? "Log in"
                   : "Create account"}
             </button>
-
           </form>
 
           <button
@@ -1303,11 +1009,8 @@ function App() {
               ? "Don't have an account? Create account"
               : "Already have an account? Log in"}
           </button>
-
         </section>
-
       </main>
-
     </div>
   );
 }
