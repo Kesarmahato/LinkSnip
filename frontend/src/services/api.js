@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "/api",
+  baseURL: "https://link-snip-backend.vercel.app",
   headers: {
     "Content-Type": "application/json",
   },
