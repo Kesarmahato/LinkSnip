@@ -20,7 +20,7 @@ load_dotenv()
 
 BASE_URL = os.getenv(
     "BASE_URL",
-    "http://localhost:8000",
+    "https://linksnap.com",
 ).rstrip("/")
 
 
