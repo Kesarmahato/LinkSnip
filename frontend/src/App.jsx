@@ -30,6 +30,10 @@ function App() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [copiedId, setCopiedId] = useState(null);
+  const [showAuth, setShowAuth] = useState(false);
+  const [guestUrl, setGuestUrl] = useState("");
+  const [guestResult, setGuestResult] = useState("");
+  const [guestLoading, setGuestLoading] = useState(false);
 
   // --------------------------------------------------
   // AUTH TOKEN
@@ -253,7 +257,37 @@ function App() {
       setLoading(false);
     }
   };
+  const handleGuestShorten = async (event) => {
+  event.preventDefault();
 
+  if (!guestUrl.trim()) {
+    setError("Please enter a URL.");
+    return;
+  }
+
+  setGuestLoading(true);
+  setError("");
+  setGuestResult("");
+
+  try {
+    // IMPORTANT:
+    // Your current backend requires authentication for /api/links/.
+    // This generates a temporary frontend-only short code.
+    const shortCode = Math.random()
+      .toString(62)
+      .substring(2, 8);
+
+    const shortUrl =
+      `${window.location.origin}/s/${shortCode}`;
+
+    setGuestResult(shortUrl);
+  } catch (error) {
+    console.error(error);
+    setError("Unable to shorten URL.");
+  } finally {
+    setGuestLoading(false);
+  }
+};
   // --------------------------------------------------
   // CREATE SHORT LINK
   // --------------------------------------------------
