@@ -1,6 +1,5 @@
 import os
 
-import requests
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -24,87 +23,11 @@ BASE_URL = os.getenv(
     "http://localhost:8000",
 ).rstrip("/")
 
-WEB_RISK_API_KEY = os.getenv("WEB_RISK_API_KEY")
-
-WEB_RISK_URL = (
-    "https://webrisk.googleapis.com/v1/uris:search"
-)
-
 
 router = APIRouter(
     prefix="/api/links",
     tags=["Links"],
 )
-
-
-# =========================
-# MALICIOUS URL CHECK
-# =========================
-
-def check_url_safety(url: str) -> None:
-    """
-    Check a URL against Google Web Risk.
-
-    Raises HTTPException if the URL is considered unsafe
-    or if the Web Risk service cannot be reached.
-    """
-
-    if not WEB_RISK_API_KEY:
-        raise HTTPException(
-            status_code=500,
-            detail="Web Risk API key is not configured",
-        )
-
-    try:
-        response = requests.get(
-            WEB_RISK_URL,
-            params=[
-                ("key", WEB_RISK_API_KEY),
-                ("uri", url),
-                ("threatTypes", "MALWARE"),
-                ("threatTypes", "SOCIAL_ENGINEERING"),
-                ("threatTypes", "UNWANTED_SOFTWARE"),
-            ],
-            timeout=5,
-        )
-
-    except requests.RequestException:
-        raise HTTPException(
-            status_code=503,
-            detail="URL safety service is temporarily unavailable",
-        )
-
-    # Google API error
-    if response.status_code != 200:
-        raise HTTPException(
-            status_code=503,
-            detail="Unable to verify URL safety",
-        )
-
-    try:
-        result = response.json()
-    except ValueError:
-        raise HTTPException(
-            status_code=503,
-            detail="Invalid response from URL safety service",
-        )
-
-    # If Google returns a threat object, the URL is unsafe.
-    threat = result.get("threat")
-
-    if threat:
-        threat_types = threat.get(
-            "threatTypes",
-            [],
-        )
-
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "This URL has been identified as potentially unsafe "
-                f"({', '.join(threat_types)})."
-            ),
-        )
 
 
 # =========================
@@ -119,13 +42,6 @@ def create_link(
 ):
     # Convert Pydantic HttpUrl to string
     original_url = str(link_data.url)
-
-    # =========================
-    # MALICIOUS URL CHECK
-    # =========================
-    # IMPORTANT:
-    # This happens BEFORE the URL is stored in the database.
-    check_url_safety(original_url)
 
     # =========================
     # GENERATE UNIQUE SHORT CODE
