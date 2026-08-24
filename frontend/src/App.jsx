@@ -1,19 +1,23 @@
 import { useCallback, useEffect, useState } from "react";
+
 import api from "./services/api";
+
 import "./App.css";
 
 function App() {
-  // --------------------------------------------------
+  // ==================================================
   // STATE
-  // --------------------------------------------------
+  // ==================================================
 
   const [backendStatus, setBackendStatus] = useState("Checking...");
+
   const [mode, setMode] = useState("login");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   const [user, setUser] = useState(null);
+
   const [links, setLinks] = useState([]);
 
   const [analyticsLink, setAnalyticsLink] = useState(null);
@@ -29,23 +33,28 @@ function App() {
 
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+
   const [copiedId, setCopiedId] = useState(null);
+
+  // Controls whether Login/Register page is visible
   const [showAuth, setShowAuth] = useState(false);
+
+  // Guest/public URL shortener
   const [guestUrl, setGuestUrl] = useState("");
   const [guestResult, setGuestResult] = useState("");
   const [guestLoading, setGuestLoading] = useState(false);
 
-  // --------------------------------------------------
+  // ==================================================
   // AUTH TOKEN
-  // --------------------------------------------------
+  // ==================================================
 
   const getToken = useCallback(() => {
     return localStorage.getItem("access_token");
   }, []);
 
-  // --------------------------------------------------
+  // ==================================================
   // LINK STATUS
-  // --------------------------------------------------
+  // ==================================================
 
   const isLinkActive = (link) => {
     if (!link.is_active) {
@@ -62,9 +71,9 @@ function App() {
     return true;
   };
 
-  // --------------------------------------------------
+  // ==================================================
   // BACKEND HEALTH
-  // --------------------------------------------------
+  // ==================================================
 
   const checkBackend = useCallback(async () => {
     try {
@@ -81,9 +90,9 @@ function App() {
     }
   }, []);
 
-  // --------------------------------------------------
+  // ==================================================
   // LOAD LINKS
-  // --------------------------------------------------
+  // ==================================================
 
   const loadLinks = useCallback(
     async (authToken = getToken()) => {
@@ -126,9 +135,9 @@ function App() {
     [getToken]
   );
 
-  // --------------------------------------------------
+  // ==================================================
   // RESTORE LOGIN SESSION
-  // --------------------------------------------------
+  // ==================================================
 
   const restoreSession = useCallback(async () => {
     const savedToken = getToken();
@@ -146,6 +155,9 @@ function App() {
 
       setUser(response.data);
 
+      // If a saved session exists, show dashboard
+      setShowAuth(false);
+
       await loadLinks(savedToken);
 
       setBackendStatus("Backend connected successfully");
@@ -156,14 +168,15 @@ function App() {
       );
 
       localStorage.removeItem("access_token");
+
       setUser(null);
       setLinks([]);
     }
   }, [getToken, loadLinks]);
 
-  // --------------------------------------------------
+  // ==================================================
   // INITIAL LOAD
-  // --------------------------------------------------
+  // ==================================================
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -176,9 +189,9 @@ function App() {
     initializeApp();
   }, [checkBackend, restoreSession]);
 
-  // --------------------------------------------------
+  // ==================================================
   // LOGIN / REGISTER
-  // --------------------------------------------------
+  // ==================================================
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -208,6 +221,9 @@ function App() {
         };
 
         setUser(loggedInUser);
+
+        // Hide authentication screen
+        setShowAuth(false);
 
         setBackendStatus(
           "Backend connected successfully"
@@ -257,40 +273,95 @@ function App() {
       setLoading(false);
     }
   };
+
+  // ==================================================
+  // GUEST / PUBLIC URL SHORTENER
+  // ==================================================
+
   const handleGuestShorten = async (event) => {
-  event.preventDefault();
+    event.preventDefault();
 
-  if (!guestUrl.trim()) {
-    setError("Please enter a URL.");
-    return;
-  }
+    setError("");
+    setMessage("");
 
-  setGuestLoading(true);
-  setError("");
-  setGuestResult("");
+    if (!guestUrl.trim()) {
+      setError("Please enter a URL.");
+      return;
+    }
 
-  try {
-    // IMPORTANT:
-    // Your current backend requires authentication for /api/links/.
-    // This generates a temporary frontend-only short code.
-    const shortCode = Math.random()
-      .toString(62)
-      .substring(2, 8);
+    // Basic URL validation
+    try {
+      new URL(guestUrl);
+    } catch {
+      setError(
+        "Please enter a valid URL, including https://"
+      );
+      return;
+    }
 
-    const shortUrl =
-      `${window.location.origin}/s/${shortCode}`;
+    setGuestLoading(true);
 
-    setGuestResult(shortUrl);
-  } catch (error) {
-    console.error(error);
-    setError("Unable to shorten URL.");
-  } finally {
-    setGuestLoading(false);
-  }
-};
-  // --------------------------------------------------
-  // CREATE SHORT LINK
-  // --------------------------------------------------
+    try {
+      /*
+       * FRONTEND-ONLY GUEST SHORTENER
+       *
+       * This does NOT call the backend.
+       * It generates a temporary short code locally.
+       */
+
+      const characters =
+        "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+      let shortCode = "";
+
+      for (let i = 0; i < 6; i++) {
+        shortCode +=
+          characters[
+            Math.floor(
+              Math.random() * characters.length
+            )
+          ];
+      }
+
+      const shortUrl = `${window.location.origin}/s/${shortCode}`;
+
+      setGuestResult(shortUrl);
+    } catch (error) {
+      console.error(
+        "Guest shortening error:",
+        error
+      );
+
+      setError("Unable to shorten URL.");
+    } finally {
+      setGuestLoading(false);
+    }
+  };
+
+  // ==================================================
+  // COPY GUEST URL
+  // ==================================================
+
+  const copyGuestUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(
+        guestResult
+      );
+
+      setMessage("Short link copied!");
+    } catch (error) {
+      console.error(
+        "Guest copy failed:",
+        error
+      );
+
+      setError("Unable to copy the short URL.");
+    }
+  };
+
+  // ==================================================
+  // CREATE SHORT LINK FOR REGISTERED USER
+  // ==================================================
 
   const handleCreateLink = async (event) => {
     event.preventDefault();
@@ -303,6 +374,8 @@ function App() {
       );
 
       setUser(null);
+      setShowAuth(true);
+
       return;
     }
 
@@ -363,9 +436,9 @@ function App() {
     }
   };
 
-  // --------------------------------------------------
+  // ==================================================
   // DEACTIVATE LINK
-  // --------------------------------------------------
+  // ==================================================
 
   const handleDeactivate = async (linkId) => {
     const confirmed = window.confirm(
@@ -384,6 +457,8 @@ function App() {
       );
 
       setUser(null);
+      setShowAuth(true);
+
       return;
     }
 
@@ -422,9 +497,9 @@ function App() {
     }
   };
 
-  // --------------------------------------------------
+  // ==================================================
   // ANALYTICS
-  // --------------------------------------------------
+  // ==================================================
 
   const loadAnalytics = async (link) => {
     const authToken = getToken();
@@ -435,6 +510,8 @@ function App() {
       );
 
       setUser(null);
+      setShowAuth(true);
+
       return;
     }
 
@@ -478,9 +555,9 @@ function App() {
     }
   };
 
-  // --------------------------------------------------
+  // ==================================================
   // CLOSE ANALYTICS
-  // --------------------------------------------------
+  // ==================================================
 
   const closeAnalytics = () => {
     setAnalyticsLink(null);
@@ -488,9 +565,9 @@ function App() {
     setAnalyticsLoading(false);
   };
 
-  // --------------------------------------------------
+  // ==================================================
   // COPY SHORT URL
-  // --------------------------------------------------
+  // ==================================================
 
   const copyShortUrl = async (link) => {
     try {
@@ -515,9 +592,9 @@ function App() {
     }
   };
 
-  // --------------------------------------------------
+  // ==================================================
   // LOGOUT
-  // --------------------------------------------------
+  // ==================================================
 
   const handleLogout = () => {
     localStorage.removeItem(
@@ -535,197 +612,270 @@ function App() {
 
     setMessage("");
     setError("");
+
+    // Return to public URL generator
+    setShowAuth(false);
   };
+
   // ==================================================
-// PUBLIC LANDING PAGE
-// ==================================================
+  // OPEN LOGIN
+  // ==================================================
 
-if (!user && !showAuth) {
-  return (
-    <div className="app">
+  const openLogin = () => {
+    setMode("login");
+    setError("");
+    setMessage("");
+    setShowAuth(true);
+  };
 
-      <header className="public-navbar">
-        <div className="logo">
-          LinkSnip
-        </div>
+  // ==================================================
+  // OPEN REGISTER
+  // ==================================================
 
-        <div className="navbar-actions">
-          <button
-            className="secondary-button"
-            onClick={() => {
-              setMode("login");
-              setShowAuth(true);
-            }}
-          >
-            Log in
-          </button>
+  const openRegister = () => {
+    setMode("register");
+    setError("");
+    setMessage("");
+    setShowAuth(true);
+  };
 
-          <button
-            className="primary-button"
-            onClick={() => {
-              setMode("register");
-              setShowAuth(true);
-            }}
-          >
-            Create account
-          </button>
-        </div>
-      </header>
+  // ==================================================
+  // BACK TO PUBLIC LINK GENERATOR
+  // ==================================================
 
+  const backToLinkSnip = () => {
+    setShowAuth(false);
 
-      <main className="public-home">
+    setError("");
+    setMessage("");
 
-        <div className="hero-badge">
-          Simple links. Useful analytics.
-        </div>
+    setEmail("");
+    setPassword("");
+  };
 
-        <h1>
-          Shorten links.
-          <br />
-          <span>Understand every click.</span>
-        </h1>
+  // ==================================================
+  // PUBLIC LANDING PAGE
+  // ==================================================
 
-        <p className="hero-description">
-          Turn long URLs into clean, shareable links
-          in seconds. No account required.
-        </p>
+  if (!user && !showAuth) {
+    return (
+      <div className="app">
 
+        {/* PUBLIC NAVBAR */}
+        <header className="public-navbar">
+          <div className="logo">
+            LinkSnip
+          </div>
 
-        <section className="public-shortener">
-
-          <form
-            onSubmit={handleGuestShorten}
-            className="public-shortener-form"
-          >
-
-            <input
-              type="url"
-              placeholder="Paste a long URL, e.g. https://example.com/your-page"
-              value={guestUrl}
-              onChange={(event) =>
-                setGuestUrl(event.target.value)
-              }
-              required
-            />
+          <div className="navbar-actions">
 
             <button
-              type="submit"
-              disabled={guestLoading}
-              className="primary-button"
+              className="secondary-button"
+              type="button"
+              onClick={openLogin}
             >
-              {guestLoading
-                ? "Shortening..."
-                : "Shorten URL"}
+              Log in
             </button>
 
-          </form>
+            <button
+              className="primary-button"
+              type="button"
+              onClick={openRegister}
+            >
+              Create account
+            </button>
 
+          </div>
+        </header>
 
-          {guestResult && (
-            <div className="guest-result">
+        {/* PUBLIC HOME */}
+        <main className="public-home">
 
-              <div>
-                <small>
-                  YOUR SHORT LINK IS READY
-                </small>
-
-                <a
-                  href={guestResult}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {guestResult}
-                </a>
-              </div>
-
-              <div className="guest-result-actions">
-
-                <button
-                  onClick={() =>
-                    navigator.clipboard.writeText(
-                      guestResult
-                    )
-                  }
-                >
-                  Copy
-                </button>
-
-                <a
-                  href={guestResult}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Open ↗
-                </a>
-
-              </div>
-
-            </div>
-          )}
-
-
-          <div className="shortener-features">
-            <span>✓ No login required</span>
-            <span>✓ Free to use</span>
-            <span>✓ Fast redirects</span>
+          <div className="hero-badge">
+            Simple links. Useful analytics.
           </div>
 
-        </section>
+          <h1>
+            Shorten links.
+            <br />
+            <span>
+              Understand every click.
+            </span>
+          </h1>
 
-
-        <section className="registered-section">
-
-          <p className="section-label">
-            FOR REGISTERED USERS
+          <p className="hero-description">
+            Turn long URLs into clean,
+            shareable links in seconds.
+            Visitors can shorten links
+            instantly — no account required.
           </p>
 
-          <h2>
-            More control over your links.
-          </h2>
+          {/* PUBLIC SHORTENER */}
+          <section className="public-shortener">
 
-          <div className="feature-grid">
+            <form
+              onSubmit={handleGuestShorten}
+              className="public-shortener-form"
+            >
 
-            <div className="feature-card">
-              <h3>Custom aliases</h3>
-              <p>
-                Create memorable links such as
-                /my-sale.
-              </p>
+              <input
+                type="url"
+                placeholder="Paste a long URL, e.g. https://example.com/your-page"
+                value={guestUrl}
+                onChange={(event) =>
+                  setGuestUrl(event.target.value)
+                }
+                required
+              />
+
+              <button
+                type="submit"
+                disabled={guestLoading}
+                className="primary-button"
+              >
+                {guestLoading
+                  ? "Shortening..."
+                  : "Shorten URL"}
+              </button>
+
+            </form>
+
+            {/* ERROR */}
+            {error && !showAuth && (
+              <div className="error-message">
+                {error}
+              </div>
+            )}
+
+            {/* SUCCESS */}
+            {message && !showAuth && (
+              <div className="success-message">
+                {message}
+              </div>
+            )}
+
+            {/* GUEST RESULT */}
+            {guestResult && (
+              <div className="guest-result">
+
+                <div>
+                  <small>
+                    YOUR SHORT LINK IS READY
+                  </small>
+
+                  <a
+                    href={guestResult}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {guestResult}
+                  </a>
+                </div>
+
+                <div className="guest-result-actions">
+
+                  <button
+                    type="button"
+                    onClick={copyGuestUrl}
+                  >
+                    Copy
+                  </button>
+
+                  <a
+                    href={guestResult}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open ↗
+                  </a>
+
+                </div>
+
+              </div>
+            )}
+
+            <div className="shortener-features">
+              <span>
+                ✓ No login required
+              </span>
+
+              <span>
+                ✓ Free to use
+              </span>
+
+              <span>
+                ✓ Fast redirects
+              </span>
             </div>
 
-            <div className="feature-card">
-              <h3>Analytics</h3>
-              <p>
-                Track clicks, devices,
-                referrers and locations.
-              </p>
+          </section>
+
+          {/* REGISTERED USER FEATURES */}
+          <section className="registered-section">
+
+            <p className="section-label">
+              FOR REGISTERED USERS
+            </p>
+
+            <h2>
+              More control over your links.
+            </h2>
+
+            <div className="feature-grid">
+
+              <div className="feature-card">
+                <h3>
+                  Custom aliases
+                </h3>
+
+                <p>
+                  Create memorable links
+                  such as /my-sale.
+                </p>
+              </div>
+
+              <div className="feature-card">
+                <h3>
+                  Analytics
+                </h3>
+
+                <p>
+                  Track clicks, devices,
+                  referrers and locations.
+                </p>
+              </div>
+
+              <div className="feature-card">
+                <h3>
+                  Link management
+                </h3>
+
+                <p>
+                  Edit and organize your
+                  shortened links.
+                </p>
+              </div>
+
+              <div className="feature-card">
+                <h3>
+                  Expiration
+                </h3>
+
+                <p>
+                  Set links to expire when
+                  you need them to.
+                </p>
+              </div>
+
             </div>
 
-            <div className="feature-card">
-              <h3>Link management</h3>
-              <p>
-                Edit and organize your
-                shortened links.
-              </p>
-            </div>
+          </section>
 
-            <div className="feature-card">
-              <h3>Expiration</h3>
-              <p>
-                Set links to expire when
-                you need them to.
-              </p>
-            </div>
+        </main>
+      </div>
+    );
+  }
 
-          </div>
-
-        </section>
-
-      </main>
-
-    </div>
-  );
-}
   // ==================================================
   // DASHBOARD
   // ==================================================
@@ -736,8 +886,11 @@ if (!user && !showAuth) {
 
         {/* TOP BAR */}
         <header className="topbar">
+
           <div>
-            <h1>LinkSnip</h1>
+            <h1>
+              LinkSnip
+            </h1>
 
             <p>
               URL Shortening &amp; Analytics
@@ -745,20 +898,27 @@ if (!user && !showAuth) {
           </div>
 
           <div className="account-area">
-            <span>{user.email}</span>
+
+            <span>
+              {user.email}
+            </span>
 
             <button
+              type="button"
               onClick={handleLogout}
             >
               Log out
             </button>
+
           </div>
+
         </header>
 
         <main className="dashboard">
 
           {/* BACKEND STATUS */}
           <div className="backend-status">
+
             <span
               className={
                 backendStatus ===
@@ -769,10 +929,12 @@ if (!user && !showAuth) {
             />
 
             {backendStatus}
+
           </div>
 
           {/* CREATE LINK */}
           <section className="create-card">
+
             <div>
               <h2>
                 Create a short link
@@ -788,6 +950,7 @@ if (!user && !showAuth) {
               onSubmit={handleCreateLink}
               className="create-form"
             >
+
               <input
                 type="url"
                 placeholder="https://example.com/very/long/url"
@@ -827,7 +990,9 @@ if (!user && !showAuth) {
                   ? "Creating..."
                   : "Shorten URL"}
               </button>
+
             </form>
+
           </section>
 
           {/* ERROR */}
@@ -850,7 +1015,9 @@ if (!user && !showAuth) {
             <div className="section-heading">
 
               <div>
-                <h2>Your links</h2>
+                <h2>
+                  Your links
+                </h2>
 
                 <p>
                   {links.length} link
@@ -861,6 +1028,7 @@ if (!user && !showAuth) {
               </div>
 
               <button
+                type="button"
                 onClick={() =>
                   loadLinks()
                 }
@@ -883,6 +1051,7 @@ if (!user && !showAuth) {
 
               /* EMPTY */
               <div className="empty-state">
+
                 <h3>
                   No links yet
                 </h3>
@@ -891,6 +1060,7 @@ if (!user && !showAuth) {
                   Create your first
                   shortened link above.
                 </p>
+
               </div>
 
             ) : (
@@ -938,6 +1108,7 @@ if (!user && !showAuth) {
 
                         {/* SHORT URL */}
                         <h3>
+
                           <a
                             href={
                               link.short_url
@@ -947,6 +1118,7 @@ if (!user && !showAuth) {
                           >
                             {link.short_url}
                           </a>
+
                         </h3>
 
                         {/* ORIGINAL URL */}
@@ -967,6 +1139,7 @@ if (!user && !showAuth) {
                       <div className="link-actions">
 
                         <button
+                          type="button"
                           onClick={() =>
                             copyShortUrl(link)
                           }
@@ -978,6 +1151,7 @@ if (!user && !showAuth) {
                         </button>
 
                         <button
+                          type="button"
                           onClick={() =>
                             loadAnalytics(
                               link
@@ -989,6 +1163,7 @@ if (!user && !showAuth) {
 
                         {active && (
                           <button
+                            type="button"
                             className="danger-button"
                             onClick={() =>
                               handleDeactivate(
@@ -1028,6 +1203,7 @@ if (!user && !showAuth) {
                 </div>
 
                 <button
+                  type="button"
                   onClick={
                     closeAnalytics
                   }
@@ -1125,7 +1301,6 @@ if (!user && !showAuth) {
                                   index
                                 }
                               >
-
                                 <span>
                                   {item.date}
                                 </span>
@@ -1134,7 +1309,6 @@ if (!user && !showAuth) {
                                   {item.clicks ??
                                     0}
                                 </strong>
-
                               </div>
                             )
                           )}
@@ -1142,9 +1316,11 @@ if (!user && !showAuth) {
                       </div>
 
                     ) : (
+
                       <p>
                         No click data yet.
                       </p>
+
                     )}
 
                   </div>
@@ -1176,7 +1352,6 @@ if (!user && !showAuth) {
                                   className="analytics-row"
                                   key={`${item.referrer}-${index}`}
                                 >
-
                                   <span>
                                     {item.referrer ||
                                       "Direct"}
@@ -1186,7 +1361,6 @@ if (!user && !showAuth) {
                                     {item.clicks ??
                                       0}
                                   </strong>
-
                                 </div>
                               )
                             )}
@@ -1194,10 +1368,11 @@ if (!user && !showAuth) {
                         </div>
 
                       ) : (
+
                         <p>
-                          No referrer
-                          data yet.
+                          No referrer data yet.
                         </p>
+
                       )}
 
                     </div>
@@ -1223,7 +1398,6 @@ if (!user && !showAuth) {
                                 className="analytics-row"
                                 key={`${item.device}-${index}`}
                               >
-
                                 <span>
                                   {item.device}
                                 </span>
@@ -1232,7 +1406,6 @@ if (!user && !showAuth) {
                                   {item.clicks ??
                                     0}
                                 </strong>
-
                               </div>
                             )
                           )}
@@ -1240,10 +1413,11 @@ if (!user && !showAuth) {
                         </div>
 
                       ) : (
+
                         <p>
-                          No device
-                          data yet.
+                          No device data yet.
                         </p>
+
                       )}
 
                     </div>
@@ -1269,7 +1443,6 @@ if (!user && !showAuth) {
                                 className="analytics-row"
                                 key={`${item.browser}-${index}`}
                               >
-
                                 <span>
                                   {item.browser}
                                 </span>
@@ -1278,7 +1451,6 @@ if (!user && !showAuth) {
                                   {item.clicks ??
                                     0}
                                 </strong>
-
                               </div>
                             )
                           )}
@@ -1286,10 +1458,11 @@ if (!user && !showAuth) {
                         </div>
 
                       ) : (
+
                         <p>
-                          No browser
-                          data yet.
+                          No browser data yet.
                         </p>
+
                       )}
 
                     </div>
@@ -1318,7 +1491,6 @@ if (!user && !showAuth) {
                                   className="analytics-row"
                                   key={`${item.operating_system}-${index}`}
                                 >
-
                                   <span>
                                     {
                                       item.operating_system
@@ -1329,7 +1501,6 @@ if (!user && !showAuth) {
                                     {item.clicks ??
                                       0}
                                   </strong>
-
                                 </div>
                               )
                             )}
@@ -1337,11 +1508,12 @@ if (!user && !showAuth) {
                         </div>
 
                       ) : (
+
                         <p>
-                          No
-                          operating-system
+                          No operating-system
                           data yet.
                         </p>
+
                       )}
 
                     </div>
@@ -1367,7 +1539,6 @@ if (!user && !showAuth) {
                                 className="analytics-row"
                                 key={`${item.country}-${index}`}
                               >
-
                                 <span>
                                   {item.country}
                                 </span>
@@ -1376,7 +1547,6 @@ if (!user && !showAuth) {
                                   {item.clicks ??
                                     0}
                                 </strong>
-
                               </div>
                             )
                           )}
@@ -1384,10 +1554,11 @@ if (!user && !showAuth) {
                         </div>
 
                       ) : (
+
                         <p>
-                          No country
-                          data yet.
+                          No country data yet.
                         </p>
+
                       )}
 
                     </div>
@@ -1413,7 +1584,6 @@ if (!user && !showAuth) {
                                 className="analytics-row"
                                 key={`${item.city}-${index}`}
                               >
-
                                 <span>
                                   {item.city}
                                 </span>
@@ -1422,7 +1592,6 @@ if (!user && !showAuth) {
                                   {item.clicks ??
                                     0}
                                 </strong>
-
                               </div>
                             )
                           )}
@@ -1430,10 +1599,11 @@ if (!user && !showAuth) {
                         </div>
 
                       ) : (
+
                         <p>
-                          No city
-                          data yet.
+                          No city data yet.
                         </p>
+
                       )}
 
                     </div>
@@ -1445,8 +1615,7 @@ if (!user && !showAuth) {
               ) : (
 
                 <div className="empty-state">
-                  No analytics
-                  available.
+                  No analytics available.
                 </div>
 
               )}
@@ -1463,146 +1632,161 @@ if (!user && !showAuth) {
   // LOGIN / REGISTER
   // ==================================================
 
-  return (
-    <div className="app">
+  if (!user && showAuth) {
+    return (
+      <div className="app">
 
-      {/* HERO */}
-      <header className="hero">
+        {/* HERO */}
+        <header className="hero">
 
-        <h1>
-          LinkSnip
-        </h1>
+          <h1>
+            LinkSnip
+          </h1>
 
-        <p>
-          URL Shortening &amp;
-          Analytics Platform
-        </p>
-
-        <div className="backend-status">
-
-          <span
-            className={
-              backendStatus ===
-              "Backend connected successfully"
-                ? "status-dot connected"
-                : "status-dot"
-            }
-          />
-
-          {backendStatus}
-
-        </div>
-
-      </header>
-
-      {/* AUTH */}
-      <main>
-
-        <section className="auth-card">
-
-          <h2>
-            {mode === "login"
-              ? "Welcome back"
-              : "Create your account"}
-          </h2>
-
-          <p className="subtitle">
-            {mode === "login"
-              ? "Sign in to manage your shortened links."
-              : "Create an account to start shortening links."}
+          <p>
+            URL Shortening &amp;
+            Analytics Platform
           </p>
 
-          <form onSubmit={handleSubmit}>
+          <div className="backend-status">
 
-            {/* EMAIL */}
-            <label htmlFor="email">
-              Email
-            </label>
-
-            <input
-              id="email"
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(event) =>
-                setEmail(event.target.value)
+            <span
+              className={
+                backendStatus ===
+                "Backend connected successfully"
+                  ? "status-dot connected"
+                  : "status-dot"
               }
-              required
             />
 
-            {/* PASSWORD */}
-            <label htmlFor="password">
-              Password
-            </label>
+            {backendStatus}
 
-            <input
-              id="password"
-              type="password"
-              placeholder="Your password"
-              value={password}
-              onChange={(event) =>
-                setPassword(
-                  event.target.value
-                )
-              }
-              required
-            />
+          </div>
 
-            {/* ERROR */}
-            {error && (
-              <div className="error-message">
-                {error}
-              </div>
-            )}
+        </header>
 
-            {/* MESSAGE */}
-            {message && (
-              <div className="success-message">
-                {message}
-              </div>
-            )}
+        {/* AUTH */}
+        <main>
 
-            {/* SUBMIT */}
+          <section className="auth-card">
+
+            {/* BACK BUTTON */}
             <button
-              className="primary-button"
-              type="submit"
-              disabled={loading}
+              className="switch-button"
+              type="button"
+              onClick={backToLinkSnip}
             >
-              {loading
-                ? "Please wait..."
-                : mode === "login"
-                  ? "Log in"
-                  : "Create account"}
+              ← Back to LinkSnip
             </button>
 
-          </form>
+            <h2>
+              {mode === "login"
+                ? "Welcome back"
+                : "Create your account"}
+            </h2>
 
-          {/* SWITCH LOGIN/REGISTER */}
-          <button
-            className="switch-button"
-            type="button"
-            onClick={() => {
-              setMode(
-                mode === "login"
-                  ? "register"
-                  : "login"
-              );
+            <p className="subtitle">
+              {mode === "login"
+                ? "Sign in to manage your shortened links."
+                : "Create an account to start shortening links."}
+            </p>
 
-              setError("");
-              setMessage("");
-            }}
-          >
-            {mode === "login"
-              ? "Don't have an account? Create account"
-              : "Already have an account? Log in"}
-          </button>
+            <form
+              onSubmit={handleSubmit}
+            >
 
-        </section>
+              {/* EMAIL */}
+              <label htmlFor="email">
+                Email
+              </label>
 
-      </main>
+              <input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(event) =>
+                  setEmail(event.target.value)
+                }
+                required
+              />
 
-    </div>
-  );
+              {/* PASSWORD */}
+              <label htmlFor="password">
+                Password
+              </label>
+
+              <input
+                id="password"
+                type="password"
+                placeholder="Your password"
+                value={password}
+                onChange={(event) =>
+                  setPassword(
+                    event.target.value
+                  )
+                }
+                required
+              />
+
+              {/* ERROR */}
+              {error && (
+                <div className="error-message">
+                  {error}
+                </div>
+              )}
+
+              {/* MESSAGE */}
+              {message && (
+                <div className="success-message">
+                  {message}
+                </div>
+              )}
+
+              {/* SUBMIT */}
+              <button
+                className="primary-button"
+                type="submit"
+                disabled={loading}
+              >
+                {loading
+                  ? "Please wait..."
+                  : mode === "login"
+                    ? "Log in"
+                    : "Create account"}
+              </button>
+
+            </form>
+
+            {/* SWITCH LOGIN / REGISTER */}
+            <button
+              className="switch-button"
+              type="button"
+              onClick={() => {
+                setMode(
+                  mode === "login"
+                    ? "register"
+                    : "login"
+                );
+
+                setError("");
+                setMessage("");
+              }}
+            >
+              {mode === "login"
+                ? "Don't have an account? Create account"
+                : "Already have an account? Log in"}
+            </button>
+
+          </section>
+
+        </main>
+
+      </div>
+    );
+  }
+
+  return null;
 }
 
 export default App;
