@@ -536,7 +536,196 @@ function App() {
     setMessage("");
     setError("");
   };
+  // ==================================================
+// PUBLIC LANDING PAGE
+// ==================================================
 
+if (!user && !showAuth) {
+  return (
+    <div className="app">
+
+      <header className="public-navbar">
+        <div className="logo">
+          LinkSnip
+        </div>
+
+        <div className="navbar-actions">
+          <button
+            className="secondary-button"
+            onClick={() => {
+              setMode("login");
+              setShowAuth(true);
+            }}
+          >
+            Log in
+          </button>
+
+          <button
+            className="primary-button"
+            onClick={() => {
+              setMode("register");
+              setShowAuth(true);
+            }}
+          >
+            Create account
+          </button>
+        </div>
+      </header>
+
+
+      <main className="public-home">
+
+        <div className="hero-badge">
+          Simple links. Useful analytics.
+        </div>
+
+        <h1>
+          Shorten links.
+          <br />
+          <span>Understand every click.</span>
+        </h1>
+
+        <p className="hero-description">
+          Turn long URLs into clean, shareable links
+          in seconds. No account required.
+        </p>
+
+
+        <section className="public-shortener">
+
+          <form
+            onSubmit={handleGuestShorten}
+            className="public-shortener-form"
+          >
+
+            <input
+              type="url"
+              placeholder="Paste a long URL, e.g. https://example.com/your-page"
+              value={guestUrl}
+              onChange={(event) =>
+                setGuestUrl(event.target.value)
+              }
+              required
+            />
+
+            <button
+              type="submit"
+              disabled={guestLoading}
+              className="primary-button"
+            >
+              {guestLoading
+                ? "Shortening..."
+                : "Shorten URL"}
+            </button>
+
+          </form>
+
+
+          {guestResult && (
+            <div className="guest-result">
+
+              <div>
+                <small>
+                  YOUR SHORT LINK IS READY
+                </small>
+
+                <a
+                  href={guestResult}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {guestResult}
+                </a>
+              </div>
+
+              <div className="guest-result-actions">
+
+                <button
+                  onClick={() =>
+                    navigator.clipboard.writeText(
+                      guestResult
+                    )
+                  }
+                >
+                  Copy
+                </button>
+
+                <a
+                  href={guestResult}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open ↗
+                </a>
+
+              </div>
+
+            </div>
+          )}
+
+
+          <div className="shortener-features">
+            <span>✓ No login required</span>
+            <span>✓ Free to use</span>
+            <span>✓ Fast redirects</span>
+          </div>
+
+        </section>
+
+
+        <section className="registered-section">
+
+          <p className="section-label">
+            FOR REGISTERED USERS
+          </p>
+
+          <h2>
+            More control over your links.
+          </h2>
+
+          <div className="feature-grid">
+
+            <div className="feature-card">
+              <h3>Custom aliases</h3>
+              <p>
+                Create memorable links such as
+                /my-sale.
+              </p>
+            </div>
+
+            <div className="feature-card">
+              <h3>Analytics</h3>
+              <p>
+                Track clicks, devices,
+                referrers and locations.
+              </p>
+            </div>
+
+            <div className="feature-card">
+              <h3>Link management</h3>
+              <p>
+                Edit and organize your
+                shortened links.
+              </p>
+            </div>
+
+            <div className="feature-card">
+              <h3>Expiration</h3>
+              <p>
+                Set links to expire when
+                you need them to.
+              </p>
+            </div>
+
+          </div>
+
+        </section>
+
+      </main>
+
+    </div>
+  );
+}
   // ==================================================
   // DASHBOARD
   // ==================================================
