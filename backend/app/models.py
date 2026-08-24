@@ -105,6 +105,21 @@ class Link(Base):
         nullable=False,
     )
 
+    expires_after_clicks: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
+    folder: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    tags: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
     password_hash: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
