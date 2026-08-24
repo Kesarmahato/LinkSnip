@@ -1,16 +1,11 @@
-from datetime import datetime
-
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import FastAPI
+from sqlalchemy import inspect, text
+from app.database import engine
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
-from sqlalchemy.orm import Session
-from user_agents import parse
-
-from app.database import get_db
 from app.links import router as links_router
 from app.analytics import router as analytics_router
 from app.auth import router as auth_router
-from app.models import Click, Link
+from app.redirect import router as redirect_router
 
 
 
@@ -45,78 +40,32 @@ def health():
     return {"status": "healthy"}
 
 
-@app.get("/{short_code}")
-def redirect_to_original(
-    short_code: str,
-    request: Request,
-    db: Session = Depends(get_db),
-):
-    # Find link using custom alias OR generated short code
-    link = (
-        db.query(Link)
-        .filter(
-            (Link.custom_alias == short_code)
-            | (Link.short_code == short_code)
-        )
-        .first()
-    )
 
-    # Link not found
-    if not link:
-        raise HTTPException(
-            status_code=404,
-            detail="Link not found",
-        )
 
-    # Link disabled
-    if not link.is_active:
-        raise HTTPException(
-            status_code=404,
-            detail="Link is inactive",
-        )
+def ensure_link_columns():
+    """Add new optional link-management columns to an existing MVP database."""
+    inspector = inspect(engine)
+    if "links" not in inspector.get_table_names():
+        return
 
-    # Link expired
-    if link.expires_at and link.expires_at <= datetime.utcnow():
-        raise HTTPException(
-            status_code=410,
-            detail="Link has expired",
-        )
+    existing = {column["name"] for column in inspector.get_columns("links")}
+    additions = {
+        "expires_after_clicks": "INTEGER",
+        "folder": "VARCHAR(100)",
+        "tags": "TEXT",
+    }
 
-    # CLICK ANALYTICS
-    user_agent_string = request.headers.get("user-agent")
-    referrer = request.headers.get("referer")
+    with engine.begin() as connection:
+        for name, sql_type in additions.items():
+            if name not in existing:
+                connection.execute(text(f"ALTER TABLE links ADD COLUMN {name} {sql_type}"))
 
-    ua = parse(user_agent_string or "")
 
-    if ua.is_mobile:
-        device_type = "Mobile"
-    elif ua.is_tablet:
-        device_type = "Tablet"
-    elif ua.is_pc:
-        device_type = "Desktop"
-    else:
-        device_type = "Other"
+@app.on_event("startup")
+def startup():
+    from app.database import Base
+    from app.models import Click, Link, User
+    Base.metadata.create_all(bind=engine)
+    ensure_link_columns()
 
-    ip_address = None
-
-    if request.client:
-        ip_address = request.client.host
-
-    click = Click(
-        link_id=link.id,
-        ip_address=ip_address,
-        referrer=referrer,
-        user_agent=user_agent_string,
-        browser=ua.browser.family,
-        operating_system=ua.os.family,
-        device_type=device_type,
-    )
-
-    db.add(click)
-    db.commit()
-
-    # REDIRECT
-    return RedirectResponse(
-        url=link.original_url,
-        status_code=302,
-    )
+app.include_router(redirect_router)
