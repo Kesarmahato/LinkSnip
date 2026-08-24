@@ -118,5 +118,5 @@ def redirect_to_original(
     # REDIRECT
     return RedirectResponse(
         url=link.original_url,
-        status_code=307,
+        status_code=302,
     )

@@ -1,5 +1,6 @@
 import os
 
+import requests
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -10,13 +11,25 @@ from .models import Link, User
 from .schemas import LinkCreate, LinkResponse
 from .utils import generate_short_code
 
+
 load_dotenv()
 
-# Local backend URL
+
+# =========================
+# CONFIGURATION
+# =========================
+
 BASE_URL = os.getenv(
     "BASE_URL",
     "http://localhost:8000",
 ).rstrip("/")
+
+WEB_RISK_API_KEY = os.getenv("WEB_RISK_API_KEY")
+
+WEB_RISK_URL = (
+    "https://webrisk.googleapis.com/v1/uris:search"
+)
+
 
 router = APIRouter(
     prefix="/api/links",
@@ -24,13 +37,100 @@ router = APIRouter(
 )
 
 
+# =========================
+# MALICIOUS URL CHECK
+# =========================
+
+def check_url_safety(url: str) -> None:
+    """
+    Check a URL against Google Web Risk.
+
+    Raises HTTPException if the URL is considered unsafe
+    or if the Web Risk service cannot be reached.
+    """
+
+    if not WEB_RISK_API_KEY:
+        raise HTTPException(
+            status_code=500,
+            detail="Web Risk API key is not configured",
+        )
+
+    try:
+        response = requests.get(
+            WEB_RISK_URL,
+            params=[
+                ("key", WEB_RISK_API_KEY),
+                ("uri", url),
+                ("threatTypes", "MALWARE"),
+                ("threatTypes", "SOCIAL_ENGINEERING"),
+                ("threatTypes", "UNWANTED_SOFTWARE"),
+            ],
+            timeout=5,
+        )
+
+    except requests.RequestException:
+        raise HTTPException(
+            status_code=503,
+            detail="URL safety service is temporarily unavailable",
+        )
+
+    # Google API error
+    if response.status_code != 200:
+        raise HTTPException(
+            status_code=503,
+            detail="Unable to verify URL safety",
+        )
+
+    try:
+        result = response.json()
+    except ValueError:
+        raise HTTPException(
+            status_code=503,
+            detail="Invalid response from URL safety service",
+        )
+
+    # If Google returns a threat object, the URL is unsafe.
+    threat = result.get("threat")
+
+    if threat:
+        threat_types = threat.get(
+            "threatTypes",
+            [],
+        )
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "This URL has been identified as potentially unsafe "
+                f"({', '.join(threat_types)})."
+            ),
+        )
+
+
+# =========================
+# CREATE LINK
+# =========================
+
 @router.post("/", response_model=LinkResponse)
 def create_link(
     link_data: LinkCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User | None = Depends(get_current_user),
 ):
-    # Generate a unique short code
+    # Convert Pydantic HttpUrl to string
+    original_url = str(link_data.url)
+
+    # =========================
+    # MALICIOUS URL CHECK
+    # =========================
+    # IMPORTANT:
+    # This happens BEFORE the URL is stored in the database.
+    check_url_safety(original_url)
+
+    # =========================
+    # GENERATE UNIQUE SHORT CODE
+    # =========================
+
     for _ in range(10):
         short_code = generate_short_code()
 
@@ -42,13 +142,17 @@ def create_link(
 
         if not existing_link:
             break
+
     else:
         raise HTTPException(
             status_code=500,
             detail="Could not generate a unique short code",
         )
 
-    # Check custom alias
+    # =========================
+    # CHECK CUSTOM ALIAS
+    # =========================
+
     if link_data.custom_alias:
         existing_alias = (
             db.query(Link)
@@ -65,10 +169,13 @@ def create_link(
                 detail="Custom alias already exists",
             )
 
-    # Create link
+    # =========================
+    # CREATE LINK
+    # =========================
+
     link = Link(
         user_id=current_user.id,
-        original_url=str(link_data.url),
+        original_url=original_url,
         short_code=short_code,
         custom_alias=link_data.custom_alias,
         expires_at=link_data.expires_at,
@@ -79,6 +186,10 @@ def create_link(
     db.add(link)
     db.commit()
     db.refresh(link)
+
+    # =========================
+    # RESPONSE
+    # =========================
 
     return LinkResponse(
         id=link.id,
@@ -91,17 +202,21 @@ def create_link(
     )
 
 
+# =========================
+# LIST USER LINKS
+# =========================
+
 @router.get("/", response_model=list[LinkResponse])
 def list_links(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     links = (
-    db.query(Link)
-    .filter(Link.user_id == current_user.id)
-    .order_by(Link.created_at.desc())
-    .all()
-)
+        db.query(Link)
+        .filter(Link.user_id == current_user.id)
+        .order_by(Link.created_at.desc())
+        .all()
+    )
 
     return [
         LinkResponse(
@@ -116,6 +231,10 @@ def list_links(
         for link in links
     ]
 
+
+# =========================
+# DEACTIVATE LINK
+# =========================
 
 @router.delete("/{link_id}")
 def deactivate_link(
