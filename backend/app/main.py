@@ -6,7 +6,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from user_agents import parse
 
-from app.database import get_db
+from app.database import Base, engine, get_db
 from app.links import router as links_router
 from app.analytics import router as analytics_router
 from app.auth import router as auth_router
@@ -31,6 +31,12 @@ app.add_middleware(
 app.include_router(links_router)
 app.include_router(analytics_router)
 app.include_router(auth_router)
+
+
+@app.on_event("startup")
+def create_database_tables():
+    Base.metadata.create_all(bind=engine)
+
 
 @app.get("/")
 def root():
