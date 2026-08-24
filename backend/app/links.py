@@ -20,7 +20,7 @@ load_dotenv()
 
 BASE_URL = os.getenv(
     "BASE_URL",
-    "https://linksnap.com",
+    "https://link-snip-sooty.vercel.app/",
 ).rstrip("/")
 
 
