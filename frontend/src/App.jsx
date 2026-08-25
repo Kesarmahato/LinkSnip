@@ -302,37 +302,34 @@ function App() {
     setGuestLoading(true);
 
     try {
-      /*
-       * FRONTEND-ONLY GUEST SHORTENER
-       *
-       * This does NOT call the backend.
-       * It generates a temporary short code locally.
-       */
+      const response = await api.post(
+        "/api/links/public",
+        {
+          url: guestUrl,
+        }
+      );
 
-      const characters =
-        "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
-      let shortCode = "";
-
-      for (let i = 0; i < 6; i++) {
-        shortCode +=
-          characters[
-            Math.floor(
-              Math.random() * characters.length
-            )
-          ];
-      }
-
-      const shortUrl = `${window.location.origin}/s/${shortCode}`;
-
-      setGuestResult(shortUrl);
+      setGuestResult(response.data.short_url);
+      setMessage("Short link created successfully.");
     } catch (error) {
       console.error(
         "Guest shortening error:",
         error
       );
 
-      setError("Unable to shorten URL.");
+      const detail = error.response?.data?.detail;
+
+      if (Array.isArray(detail)) {
+        setError(
+          detail
+            .map((item) => item.msg)
+            .join(", ")
+        );
+      } else if (typeof detail === "string") {
+        setError(detail);
+      } else {
+        setError("Unable to shorten URL.");
+      }
     } finally {
       setGuestLoading(false);
     }
