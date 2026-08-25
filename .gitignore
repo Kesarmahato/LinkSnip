@@ -12,6 +12,7 @@ env/
 # Environment variables
 .env
 .env.*
+!frontend/.env.production
 
 # SQLite database
 *.db
